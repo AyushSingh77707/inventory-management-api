@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.user import User
 from app.core.security import hash_password,verify_password,create_access_token,verify_token
 
-router=APIRouter(prefix="/auth",tags=["Authentication"])
+router=APIRouter(prefix="/auth",tags=["Authentication"])  #prefix of url and tags 
 
 @router.post("/register",response_model=UserResponse)
 def register(info:UserRegister,db:Session=Depends(get_db)):
@@ -19,7 +19,7 @@ def register(info:UserRegister,db:Session=Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return{"message":"User created sucessfully!"}
+    return new_user
 
 @router.post("/login")
 def login(info:UserLogin,db:Session=Depends(get_db)):
@@ -41,7 +41,8 @@ def login(info:UserLogin,db:Session=Depends(get_db)):
             "id":user.id,
             "role":user.role,
             "email":user.email
-        }
+        },
+        "message":"User Logged in successfully!"
     }
     
     
