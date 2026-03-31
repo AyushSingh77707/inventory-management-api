@@ -6,6 +6,9 @@ from app.core.dependencies import get_current_user,admin_only
 from app.models.product import Product
 from typing import Optional
 
+from fastapi_cache.decorator import cache
+from fastapi_cache import FastAPICache
+
 router=APIRouter(prefix="/products",tags=["Products"])
 
 # @router.get("/")
@@ -13,9 +16,10 @@ router=APIRouter(prefix="/products",tags=["Products"])
 #     data=db.query(Product).all()
 #     return data
 
-#pagination and filtering
+#pagination and filtering with caching
 @router.get("/")
-def get_products(page:int=Query(default=1,ge=1),limit:int=Query(default=5,ge=1,le=50),category:Optional[str]=Query(default=None),db:Session=Depends(get_db),current_user=Depends(get_current_user),search:Optional[str]=Query(default=None),min_price:Optional[str]=Query(default=None),max_price:Optional[int]=Query(default=None)):
+@cache(expire=120)
+async def get_products(page:int=Query(default=1,ge=1),limit:int=Query(default=5,ge=1,le=50),category:Optional[str]=Query(default=None),db:Session=Depends(get_db),current_user=Depends(get_current_user),search:Optional[str]=Query(default=None),min_price:Optional[str]=Query(default=None),max_price:Optional[int]=Query(default=None)):
 
     query=db.query(Product)
     if category:
@@ -41,15 +45,17 @@ def get_product(product_id:int,db:Session=Depends(get_db),current_user=Depends(g
     return data
 
 @router.post("/create",response_model=ProductResponse)
-def create_product(productdata:ProductCreate,db:Session=Depends(get_db),current_user=Depends(admin_only)):
+async def create_product(productdata:ProductCreate,db:Session=Depends(get_db),current_user=Depends(admin_only)):
     new_product=Product(**productdata.model_dump())
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
+
+    await FastAPICache.clear(namespace="cache") #cache invalidation
     return new_product
 
 @router.put("/update/{product_id}",response_model=ProductResponse)
-def update_product(product_id:int,product_data:ProductUpdate,db:Session=Depends(get_db),current_user=Depends(admin_only)):
+async def update_product(product_id:int,product_data:ProductUpdate,db:Session=Depends(get_db),current_user=Depends(admin_only)):
     data=db.query(Product).filter(Product.id==product_id).first()
     if not data:
         raise HTTPException(status_code=404,detail=f"Product of product id {product_id} does not exist")
@@ -59,15 +65,19 @@ def update_product(product_id:int,product_data:ProductUpdate,db:Session=Depends(
 
     db.commit()
     db.refresh(data)
+
+    await FastAPICache.clear(namespace="cache")
     return data
 
 @router.delete("/delete/{product_id}")
-def del_product(product_id:int,db:Session=Depends(get_db),current_user=Depends(get_current_user)):
+async def del_product(product_id:int,db:Session=Depends(get_db),current_user=Depends(get_current_user)):
     data=db.query(Product).filter(Product.id==product_id).first()
     if not data:
         raise HTTPException(status_code=404,detail=f"Product of product id {product_id} does not exist")
     db.delete(data)
     db.commit()
+
+    await FastAPICache.clear(namespace="cache")
     return{"message":"Product deleted successfully from our database!"}
 
 
