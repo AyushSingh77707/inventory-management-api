@@ -1,16 +1,37 @@
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Query
 from app.schemas.product import ProductResponse,ProductCreate,ProductUpdate
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.dependencies import get_current_user,admin_only
 from app.models.product import Product
+from typing import Optional
 
 router=APIRouter(prefix="/products",tags=["Products"])
 
+# @router.get("/")
+# def get_products(db:Session=Depends(get_db),current_user=Depends(get_current_user)):
+#     data=db.query(Product).all()
+#     return data
+
+#pagination and filtering
 @router.get("/")
-def get_products(db:Session=Depends(get_db),current_user=Depends(get_current_user)):
-    data=db.query(Product).all()
+def get_products(page:int=Query(default=1,ge=1),limit:int=Query(default=5,ge=1,le=50),category:Optional[str]=Query(default=None),db:Session=Depends(get_db),current_user=Depends(get_current_user),search:Optional[str]=Query(default=None),min_price:Optional[str]=Query(default=None),max_price:Optional[int]=Query(default=None)):
+
+    query=db.query(Product)
+    if category:
+        query=query.filter(Product.category==category)
+    if search:
+        query=query.filter(Product.name.ilike(f"%{search}%"))
+    if min_price:
+        query=query.filter(Product.price>=min_price)
+    if max_price:
+        query=query.filter(Product.price<=max_price)
+
+    offset=(page-1)*limit
+    
+    data=query.offset(offset).limit(limit).all()
     return data
+    
 
 @router.get("/{product_id}",response_model=ProductResponse)
 def get_product(product_id:int,db:Session=Depends(get_db),current_user=Depends(get_current_user)):
