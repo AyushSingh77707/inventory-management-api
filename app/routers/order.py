@@ -7,6 +7,8 @@ from app.core.dependencies import get_current_user,admin_only
 from typing import List
 from app.models.product import Product
 
+from app.tasks import stock_alert
+
 router=APIRouter(prefix="/orders",tags=["Orders"])
 
 @router.post("/",response_model=OrderResponse)
@@ -37,6 +39,13 @@ def create_order(order_data:OrderCreate,db:Session=Depends(get_db),current_user=
             db.add(order_item)
         db.commit()
         db.refresh(new_order)
+
+        #data collect
+        items_for_check=[]
+        for item in order_items:
+            product=db.query(Product).filter(Product.id==item["product_id"]).first()
+            items_for_check.append({"name":product.name,"stock":product.stock_quantity})
+        stock_alert.delay(items_for_check)    
         return new_order
 
 @router.get("/",response_model=List[OrderResponse])
