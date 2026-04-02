@@ -17,7 +17,7 @@ def create_order(order_data:OrderCreate,db:Session=Depends(get_db),current_user=
     order_items=[]
 
     for i in order_data.items:
-        product=db.query(Product).filter(Product.id==i.product_id).first()
+        product=db.query(Product).filter(Product.id==i.product_id,Product.is_active==True).first()
         if not product:
             raise HTTPException(status_code=404,detail=f"product of {i.product_id} do not exist")
         if product.stock_quantity<i.quantity:

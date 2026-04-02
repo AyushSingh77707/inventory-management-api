@@ -21,7 +21,7 @@ router=APIRouter(prefix="/products",tags=["Products"])
 @cache(expire=120)
 async def get_products(page:int=Query(default=1,ge=1),limit:int=Query(default=5,ge=1,le=50),category:Optional[str]=Query(default=None),db:Session=Depends(get_db),current_user=Depends(get_current_user),search:Optional[str]=Query(default=None),min_price:Optional[str]=Query(default=None),max_price:Optional[int]=Query(default=None)):
 
-    query=db.query(Product)
+    query=db.query(Product).filter(Product.is_active==True)
     if category:
         query=query.filter(Product.category==category)
     if search:
@@ -39,7 +39,7 @@ async def get_products(page:int=Query(default=1,ge=1),limit:int=Query(default=5,
 
 @router.get("/{product_id}",response_model=ProductResponse)
 def get_product(product_id:int,db:Session=Depends(get_db),current_user=Depends(get_current_user)):
-    data=db.query(Product).filter(Product.id==product_id).first()
+    data=db.query(Product).filter(Product.id==product_id,Product.is_active==True).first()
     if not data:
         raise HTTPException(status_code=404,detail=f"Product of product id {product_id} does not exist")
     return data
@@ -74,7 +74,8 @@ async def del_product(product_id:int,db:Session=Depends(get_db),current_user=Dep
     data=db.query(Product).filter(Product.id==product_id).first()
     if not data:
         raise HTTPException(status_code=404,detail=f"Product of product id {product_id} does not exist")
-    db.delete(data)
+    # db.delete(data)
+    Product.is_active=False
     db.commit()
 
     await FastAPICache.clear(namespace="cache")
