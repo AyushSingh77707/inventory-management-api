@@ -27,6 +27,9 @@ def login(info:UserLogin,db:Session=Depends(get_db)):
     
     if not user or not verify_password(info.password,user.password):
         raise HTTPException(status_code=401,detail="invalid email or password!")
+    
+    if user.is_active==False:
+        raise HTTPException(status_code=403,detail="User is inactive... ")
 
     token=create_access_token(data={
         "sub":str(user.id),
@@ -34,8 +37,8 @@ def login(info:UserLogin,db:Session=Depends(get_db)):
     })
 
     return {
-        "access token":token,
-        "token type":"bearer",
+        "access_token":token,
+        "token_type":"bearer",
         "user":{
             "name":user.name,
             "id":user.id,
